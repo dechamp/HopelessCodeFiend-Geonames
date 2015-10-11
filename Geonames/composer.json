@@ -1,0 +1,18 @@
+{
+  "name": "dechamp/geonames",
+  "description": "class to import geonames database",
+  "authors": [
+    {
+      "name": "DeChamp",
+      "email": "PeterDStansberry@gmail.com"
+    }
+  ],
+  "require": {
+    "elasticsearch/elasticsearch": "^2.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "HopelessCodeFiend\\Geonames\\": "./."
+    }
+  }
+}
