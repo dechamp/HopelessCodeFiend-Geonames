@@ -6,18 +6,18 @@
  * Time: 9:16 PM
  */
 
-$countries_or_postal_codes  = isset( $argv[2] ) ? $argv[2] : '';
-$file  = isset( $argv[3] ) ? $argv[3] : 'US';
+$countries_or_postal_codes  = isset( $argv[1] ) ? $argv[1] : '';
+$file  = isset( $argv[2] ) ? $argv[2] : 'US';
 $data_storage_iterator  = isset( $argv[3] ) ? $argv[3] : 'elasticsearch';
 $database_insert_chunk_count  = isset( $argv[4] ) ? $argv[4] : '';
 $_DEBUG = isset( $argv[5] ) ? $argv[5] * 1.0 : 0;
 
-if( empty( $_HOST ) || empty( $countries_or_postal_codes ) )
+if( empty( $countries_or_postal_codes ) )
 {
     die( 'Use: php ' . $_SERVER['PHP_SELF'] . ' <"countries" or "zips", required>, <zip_file_name, optional, default: US>, <database_insert_chuck_count, optional, default:500>, <data_storage_iterator, optional, default:elasticsearch, options(elasticsearch, mysql)>, <debug, optional, default:0>' );
 }
 
-require_once( '../vendors/DeChamp/Geonames/GeonamesLoader.php' );
+require_once( 'Geonames/GeonamesLoader.php' );
 
 if( ! $_DEBUG )
 {
@@ -43,7 +43,6 @@ switch( $countries_or_postal_codes )
     case 'countries':
         $Config = new DataSourceConfiguration( 'http://download.geonames.org/export/dump/' . $file . '.zip', '' . $file . '.txt' );
         $Config->set_temp_directory( 'tmp/countries' );
-        $Config->set_DB( new TbDataGeonamesClass() );
         $Config->enable_recovery();
 
         /**
@@ -58,7 +57,6 @@ switch( $countries_or_postal_codes )
     case 'zips':
         $Config = new DataSourceConfiguration( 'http://download.geonames.org/export/zip/' . $file . '.zip', '' . $file . '.txt' );
         $Config->set_temp_directory( 'tmp/zips' );
-        $Config->set_DB( new TbDataGeonamesZipsClass() );
 
         /**
          * The "Country" DataSource is for importing Countries geo information.
@@ -70,7 +68,7 @@ switch( $countries_or_postal_codes )
         break;
 
     default:
-        echo 'Please choose either "countries" or "zips"';
+        die('Please choose either "countries" or "zips"');
 }
 
 /**
@@ -89,7 +87,7 @@ elseif($data_storage_iterator === 'mysql')
 }
 else
 {
-    die('Iterator ' . $data_storage_iterator . ' is not an option');
+    die(' Iterator ' . $data_storage_iterator . ' is not an option');
 }
 
 $geonames_importer->insert_at_time( $database_insert_chunk_count );

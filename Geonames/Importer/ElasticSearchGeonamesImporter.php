@@ -12,7 +12,7 @@ class ElasticSearchGeonamesImporter extends GeonamesImporter {
     {
         parent::__construct( $dataSourceBase );
 
-        $this->client = new \Elasticsearch\Client();
+        $this->client = \Elasticsearch\ClientBuilder::create()->build();
     }
 
 	public function import_to_database(\Iterator $iterator )
