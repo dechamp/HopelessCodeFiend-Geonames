@@ -239,7 +239,7 @@ class DataSourceBase {
      * Get process of the download. This was provided from https://gist.github.com/bdunogier/1030450
      *
      */
-    private function progress_callback( $resource, $download_size, $downloaded_size, $upload_size, $uploaded_size )
+    private function progress_callback( $resource, $download_size, $downloaded_size, $upload_size, $uploaded_size = null )
     {
         static $previousProgress = 0;
 
