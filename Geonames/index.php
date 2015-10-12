@@ -14,7 +14,7 @@ $_DEBUG = isset( $argv[5] ) ? $argv[5] * 1.0 : 0;
 
 if( empty( $countries_or_postal_codes ) )
 {
-    die( 'Use: php ' . $_SERVER['PHP_SELF'] . ' <"countries" or "zips", required>, <zip_file_name, optional, default: US>, <database_insert_chuck_count, optional, default:500>, <data_storage_iterator, optional, default:elasticsearch, options(elasticsearch, mysql)>, <debug, optional, default:0>' );
+    die( 'Use: php ' . $_SERVER['PHP_SELF'] . ' <"countries" or "zips", required>, <zip_file_name, optional, default: US>, <data_storage_iterator, optional, default:elasticsearch, options(elasticsearch, mysql)>, <database_insert_chuck_count, optional, default:500>, <debug, optional, default:0>' );
 }
 
 require_once('GeonamesLoader.php');

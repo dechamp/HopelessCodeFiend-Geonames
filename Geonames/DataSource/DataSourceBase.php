@@ -10,6 +10,7 @@ namespace HopelessCodeFiend\Geonames\DataSource;
 
 
 use HopelessCodeFiend\Geonames\Iterator\FileIterator;
+use ZipArchive;
 
 class DataSourceBase {
 
@@ -161,7 +162,7 @@ class DataSourceBase {
         // Extract the zip file
         try
         {
-            $zip = new \ZipArchive;
+            $zip = new ZipArchive;
             chmod( $this->temp_file, 0777 );
 
             if( $res = $zip->open( $this->temp_file ) !== true )
