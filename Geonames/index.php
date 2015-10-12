@@ -17,7 +17,7 @@ if( empty( $countries_or_postal_codes ) )
     die( 'Use: php ' . $_SERVER['PHP_SELF'] . ' <"countries" or "zips", required>, <zip_file_name, optional, default: US>, <database_insert_chuck_count, optional, default:500>, <data_storage_iterator, optional, default:elasticsearch, options(elasticsearch, mysql)>, <debug, optional, default:0>' );
 }
 
-require_once( 'Geonames/GeonamesLoader.php' );
+require_once('GeonamesLoader.php');
 
 if( ! $_DEBUG )
 {
