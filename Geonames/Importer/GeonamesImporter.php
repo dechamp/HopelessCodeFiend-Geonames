@@ -4,6 +4,7 @@ namespace HopelessCodeFiend\Geonames\Importer;
 
 use HopelessCodeFiend\Geonames\DataSource;
 use HopelessCodeFiend\Geonames\DataSource\DataSourceBase;
+use Iterator;
 
 
 abstract class GeonamesImporter {
@@ -26,7 +27,7 @@ abstract class GeonamesImporter {
         $this->DB = $this->dataSource->DB();
     }
 
-    abstract public function import_to_database( \Iterator $iterator );
+    abstract public function import_to_database( Iterator $iterator );
 
     public function import()
     {
