@@ -5,19 +5,20 @@
         "This file is @generated automatically"
     ],
     "hash": "08ed89a7316a04142b6414617f1f9466",
+    "content-hash": "1225f0aa2a1c8e7b2435b4cd3028b096",
     "packages": [
         {
             "name": "elasticsearch/elasticsearch",
-            "version": "v2.0.2",
+            "version": "v2.1.5",
             "source": {
                 "type": "git",
                 "url": "https://github.com/elastic/elasticsearch-php.git",
-                "reference": "87858db144649634fb6a11a033642b1b4db888d3"
+                "reference": "c1675245c0a6f789cbb80b3e0b333b9ef521a627"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/elastic/elasticsearch-php/zipball/87858db144649634fb6a11a033642b1b4db888d3",
-                "reference": "87858db144649634fb6a11a033642b1b4db888d3",
+                "url": "https://api.github.com/repos/elastic/elasticsearch-php/zipball/c1675245c0a6f789cbb80b3e0b333b9ef521a627",
+                "reference": "c1675245c0a6f789cbb80b3e0b333b9ef521a627",
                 "shasum": ""
             },
             "require": {
@@ -28,8 +29,8 @@
             "require-dev": {
                 "athletic/athletic": "~0.1",
                 "cpliakas/git-wrapper": "~1.0",
-                "mockery/mockery": "dev-master@dev",
-                "phpunit/phpunit": "3.7.*",
+                "mockery/mockery": "0.9.4",
+                "phpunit/phpunit": "~4.7",
                 "symfony/yaml": "2.4.3 as 2.4.2",
                 "twig/twig": "1.*"
             },
@@ -58,7 +59,7 @@
                 "elasticsearch",
                 "search"
             ],
-            "time": "2015-09-23 18:47:51"
+            "time": "2016-03-18 16:31:37"
         },
         {
             "name": "guzzlehttp/ringphp",
@@ -201,16 +202,16 @@
         },
         {
             "name": "react/promise",
-            "version": "v2.2.1",
+            "version": "v2.4.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/reactphp/promise.git",
-                "reference": "3b6fca09c7d56321057fa8867c8dbe1abf648627"
+                "reference": "f942da7b505d1a294284ab343d05df42d02ad6d9"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/reactphp/promise/zipball/3b6fca09c7d56321057fa8867c8dbe1abf648627",
-                "reference": "3b6fca09c7d56321057fa8867c8dbe1abf648627",
+                "url": "https://api.github.com/repos/reactphp/promise/zipball/f942da7b505d1a294284ab343d05df42d02ad6d9",
+                "reference": "f942da7b505d1a294284ab343d05df42d02ad6d9",
                 "shasum": ""
             },
             "require": {
@@ -241,7 +242,7 @@
                 }
             ],
             "description": "A lightweight implementation of CommonJS Promises/A for PHP",
-            "time": "2015-07-03 13:48:55"
+            "time": "2016-03-31 13:10:33"
         }
     ],
     "packages-dev": [],

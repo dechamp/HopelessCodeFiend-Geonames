@@ -10,5 +10,5 @@ set_time_limit(60 * 60 * 5);
  * Composer autoloader
  *
  */
-$dir =  __DIR__;
-require_once( $dir . '/vendor/autoload.php' );
+$dir = __DIR__;
+require_once($dir.'/vendor/autoload.php');
