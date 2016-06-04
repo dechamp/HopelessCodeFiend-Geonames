@@ -132,7 +132,6 @@ class DataSourceBase
     protected function getZipFile()
     {
         try {
-            // TODO add file expiration time to a configuration file
             if (!file_exists($this->getDataFilePath())
                 || (filectime($this->getDataFilePath()) + $this->getConfig()->getMaxResourceLifeSpan()) <= time()
             ) {

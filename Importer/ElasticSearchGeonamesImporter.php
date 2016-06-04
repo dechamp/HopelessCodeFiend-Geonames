@@ -25,30 +25,47 @@ class ElasticSearchGeonamesImporter extends GeonamesImporter
         try {
             self::jobStart();
 
-            while ($iterator->current() !== false) {
+            $params = ['body' => []];
+            $rowsProcessedCount = 0;
 
-                // You have the data now, so delete it to clear memory
-                $params = [
-                    'index' => 'geonames',
-                    'type' => $this->dataSource->table,
-//                    'id' => 'id',
-                    'body' => $this->map_params(),
+            while ($iterator->current() !== false) {
+                $params['body'][] = [
+                    'index' => [
+                        '_index' => 'geonames',
+                        '_type' => $this->dataSource->table,
+                    ],
                 ];
 
-                $results = $this->addToDatabase($params);
+                $params['body'][] = $this->map_params();
+                $rowsProcessedCount++;
 
-                if ($results['created'] === true) {
-                    $this->increaseInsertCountBy(1);
-                }
+                if ($rowsProcessedCount % $this->insertAtTime == 0) {
 
-                $iterator->delete();
+                    $responses = $this->addToDatabaseBulk($params);
 
-                if ($this->getRowsProcessedCount() > (int)$this->insertAtTime) {
-                    echo ($this->rowsProcessedCount += $this->rowsProcessedCount)."\n";
-                    $this->rowsProcessedCount = 0;
+                    if (array_key_exists('errors', $responses) && false !== $responses['errors']) {
+                       throw new Exception('Error while inserting data');
+                    }
+
+                    fwrite(STDOUT, "\r".$rowsProcessedCount.' inserted');
+
+                    $params = ['body' => []];
+                    unset($responses);
                 }
             }
 
+            // Send the last batch if it exists
+            if (!empty($params['body'])) {
+                $responses = $this->addToDatabaseBulk($params);
+
+                if (array_key_exists('errors', $responses) && false !== $responses['errors']) {
+                    throw new Exception('Error while inserting data');
+                }
+
+                fwrite(STDOUT, "\r".$rowsProcessedCount.' inserted');
+            }
+
+            fwrite(STDERR, "\n".'Done! :)');
             self::jobDone();
         } catch (Exception $e) {
             throw $e;
@@ -58,10 +75,21 @@ class ElasticSearchGeonamesImporter extends GeonamesImporter
     protected function addToDatabase($params = null)
     {
         if (!isset($params) || !array_key_exists('body', $params)) {
-            throw new InvalidArgumentException('ElasticSearch requires params to be an array with [index,type,id,body]');
+            throw new InvalidArgumentException('ElasticSearch requires params to be an array with [index,type,body]');
         }
 
         $response = $this->client->index($params);
+
+        return $response;
+    }
+
+    protected function addToDatabaseBulk($params = null)
+    {
+        if (!isset($params) || !array_key_exists('body', $params)) {
+            throw new InvalidArgumentException('ElasticSearch requires params to be an array with [index,type,body]');
+        }
+
+        $response = $this->client->bulk($params);
 
         return $response;
     }
