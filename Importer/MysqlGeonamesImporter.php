@@ -2,125 +2,152 @@
 
 namespace HopelessCodeFiend\Geonames\Importer;
 
+use Exception;
 use HopelessCodeFiend\Geonames\DataSource;
 use Iterator;
+use PDOException;
 
 class MysqlGeonamesImporter extends GeonamesImporter
 {
-
-    private $_forceFun = false;
+    private $_forceRun = false;
+    private $processedAt = 0;
 
     public function importToDatabase(Iterator $iterator)
     {
         try {
-            $j = 0;
-
             self::jobStart();
-
-            while (($row = $iterator->current()) !== false) {
-                $this->reportSql[]
-                    = '
-                    INSERT INTO
-                      tb_data.'.$this->dataSource->table.'
-                    SET '.$this->mapColumns($iterator->key()).'
-                    ON DUPLICATE KEY UPDATE
-                       '.$this->mapColumns($iterator->key(), 1);
-
-                $this->reportParams = array_merge($this->reportParams, $this->mapParams($iterator->key()));
-
-                $j++;
-                $iterator->delete();
-
-                $this->addToDatabase($j);
-            }
-
-            if (count($this->reportSql) > 0) {
-                $this->_forceFun = true;
-                $this->addToDatabase($j);
-            }
-
+            $this->process($iterator);
             self::jobDone();
-
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             throw $e;
         }
     }
 
-    protected function addToDatabase($j)
+    protected function process(Iterator $iterator)
     {
-        $this->insertCount += count($this->reportSql);
+        fwrite(STDOUT, "\n".'Building query from file, parsing in to chunks of '.$this->insertAtTime."\n\r");
 
-        if ($this->dataSource->config->recover === true && !self::caughtUp()) {
-            $this->reportSql = [];
-            $this->reportParams = [];
-
-            return null;
+        while (true) {
+            $this->generateQuery($iterator);
+            $this->addToDatabase();
+            if (!$iterator->valid()) {
+                break;
+            }
         }
 
-        if ($j >= $this->insertAtTime || $this->_forceFun === true) {
+        fwrite(
+            STDOUT,
+            "\r".$this->rowsAffectedCount.' rows affected (query uses "replace", if row existed
+            it will replace it which counts as 2 (delete, insert). Don\'t let the count concern you.)'."\n"
+        );
+        fwrite(STDOUT, 'Done! :)'."\n\r");
+    }
 
-            $res = call_user_func(
-                [
-                    $this->DB,
-                    'exec',
-                ],
-                implode(';', $this->reportSql),
-                $this->reportParams
-            );
+    protected function generateQuery(Iterator $iterator)
+    {
+        // TODO FIX
+//        if ($this->dataSource->getConfig()->recover === true && !self::caughtUp()) {
+//            $this->reportSql = '';
+//            $this->reportParams = [];
+//
+//            return null;
+//        }
 
-            if (!isset($res) || $res['error']) {
-                die(var_export($res));
+        $rowCount = 0;
+        $reportParams = [];
+        $query = '';
+        $query .= 'REPLACE INTO';
+        $query .= ' '.$this->dataSource->getConfig()->getDatabaseName().'.'.$this->dataSource->table;
+        $query .= ' ('.$this->mapColumns().')';
+        $query .= ' VALUES ';
+
+        while ($iterator->current() && $iterator->valid() !== false && $rowCount < $this->insertAtTime) {
+            $query .= '('.$this->mapColumnPlaceHolders().'),';
+            $reportParams = array_merge($reportParams, $this->mapParams());
+            $rowCount++;
+            $this->rowsProcessedCount++;
+            $iterator->delete();
+        }
+
+        $this->reportSql[] = $query;
+        $this->reportParams[] = $reportParams;
+    }
+
+    protected function addToDatabase()
+    {
+        try {
+
+            foreach ($this->reportSql AS $reportSqlKey => $reportSql) {
+                // Cleanup the query
+                $reportSql = rtrim($reportSql, ',');
+
+                // Run query and track stats
+                $statement = $this->database->prepare($reportSql);
+                $statement->execute($this->reportParams[$reportSqlKey]);
+                $affected_rows = $statement->rowCount();
+                $this->rowsAffectedCount += $affected_rows;
+                $this->processedAt += $this->insertAtTime;
+                fwrite(STDOUT, "\r".$this->processedAt.' rows inserted');
+
+                if (false === $this->updateCurrentProgress()) {
+                    fwrite(STDERR, 'Unable to track progress, check file permissions'."\n");
+                }
+
+                // Reset attributes
+                unset($this->reportSql[$reportSqlKey]);
+                unset($this->reportParams[$reportSqlKey]);
             }
+        } catch (PDOException $e) {
+            throw $e;
+        }
 
-            $this->actualInsertCount += count($this->reportSql);
-            $this->updateCurrentProgress();
-            echo $this->actualInsertCount.' inserted'."\r\n";
-
-            $this->reportSql = [];
-            $this->reportParams = [];
-            $j = 0;
-            $this->_forceFun = false;
+        if (null === $this->database->lastInsertId()) {
+            throw new Exception($this->database->errorInfo());
         }
     }
 
-    protected function mapColumns($count, $duplicate = null)
+    protected function mapColumns()
     {
         $columns = $this->dataSource->getMappedColumns();
-        $unique_keys = $this->dataSource->getUniqueKeys();
-
-        if (isset($duplicate)) {
-            foreach ($unique_keys AS $primary_key) {
-                unset($columns[$primary_key]);
-            }
-        }
-
         $results = '';
 
         foreach ($columns AS $column) {
-            $results .= $column.' = {{'.$column.'_'.$count.'}},';
+            $results .= $column.',';
         }
 
         return rtrim($results, ',');
     }
 
-    protected function mapParams($key)
+    protected function mapColumnPlaceHolders()
     {
         $columns = $this->dataSource->getMappedColumns();
-        $reportParams = [];
+        $results = '';
+
+        foreach ($columns AS $column) {
+            $results .= '?,';
+        }
+
+        return rtrim($results, ',');
+    }
+
+    protected function mapParams()
+    {
+        $report_params = [];
+        $columns = $this->dataSource->getMappedColumns();
         $row = $this->dataIterator->current();
 
         // Check for invalid rows
         if (count($row) !== count($columns)) {
-            error_log('Invalid row: '.$this->actualInsertCount.' :: '.$row."\n");
-            echo 'line '.$this->actualInsertCount.' is invalid and was skipped'."\n";
+            error_log('Invalid row: '.$this->rowsProcessedCount.' :: '.$row."\n");
+            fwrite(STDOUT, 'line '.$this->rowsProcessedCount.' is invalid and was skipped'."\n");
 
             return null;
         }
 
-        foreach ($columns AS $columnKey => $columnVal) {
-            $reportParams[$columnVal.'_'.$key] = $row[$columnKey];
+        foreach ($columns AS $column_key => $column_val) {
+            $report_params[] = $row[$column_key];
         }
 
-        return $reportParams;
+        return $report_params;
     }
 }

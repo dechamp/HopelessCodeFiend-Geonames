@@ -5,15 +5,17 @@
  * Date: 10/10/15
  * Time: 9:16 PM
  */
-namespace HopelessCodeFiend;
+namespace HopelessCodeFiend\Geonames;
 
-use HopelessCodeFiend\Geonames\DataSource\DataSourceConfiguration;
+use Exception;
 use HopelessCodeFiend\Geonames\DataSource\CountryDataSource;
+use HopelessCodeFiend\Geonames\DataSource\DataSourceConfiguration;
 use HopelessCodeFiend\Geonames\DataSource\ZipDataSource;
 use HopelessCodeFiend\Geonames\Importer\ElasticSearchGeonamesImporter;
 use HopelessCodeFiend\Geonames\Importer\MysqlGeonamesImporter;
 use InvalidArgumentException;
 use PDO;
+use PDOException;
 
 // CLI Options
 $short_options = "";
@@ -52,11 +54,11 @@ if (!$_DEBUG) {
 
 fwrite(STDOUT, 'Starting Import...'."\r\n");
 
-$config = new DataSourceConfiguration('http://download.geonames.org/export/dump/'.$file.'.zip', ''.$file.'.txt');
 
 switch ($countriesOrPostalCodes) {
     case 'countries':
-        $config->setTempDirectory('tmp/countries');
+        $config = new DataSourceConfiguration('http://download.geonames.org/export/dump/'.$file.'.zip', ''.$file.'.txt');
+        $config->setTempDirectory(dirname(__FILE__).'/tmp/countries');
         $config->enableRecovery();
 
         /**
@@ -69,7 +71,8 @@ switch ($countriesOrPostalCodes) {
         break;
 
     case 'zips':
-        $config->setTempDirectory('tmp/zips');
+        $config = new DataSourceConfiguration('http://download.geonames.org/export/zip/'.$file.'.zip', ''.$file.'.txt');
+        $config->setTempDirectory(dirname(__FILE__).'/tmp/zips');
 
         /**
          * The "Country" DataSource is for importing Countries geo information.
@@ -85,24 +88,60 @@ switch ($countriesOrPostalCodes) {
         exit();
 }
 
+// Set the lifetime span before data resource files should be re-downloaded
+$config->setMaxResourceLifeSpan(60 * 60 * 24);
+
 /**
  * This is the actual processor to import the data.
  *
  * The only one right now is MysqlGeonamesImporter, but we can easily add
  * more such as MongoGeonamesImporter and so on.
  */
+$geonamesImporter = null;
+
 if ($dataStorageIterator === 'elasticsearch') {
-    $geonamesImporter = new ElasticSearchGeonamesImporter($datasource);
+    try {
+        $geonamesImporter = new ElasticSearchGeonamesImporter($datasource);
+    } catch (Exception $e) {
+        fwrite(STDERR, $e->getMessage());
+    }
 } elseif ($dataStorageIterator === 'mysql') {
-    
-    // $Config is passed to $datasource above
-    $config->setDB(new PDO('mysql:host=localhost;dbname=testdb;charset=utf8mb4', 'root', 'root'));
-    $geonamesImporter = new MysqlGeonamesImporter($datasource);
+
+    try {
+        $host = '127.0.0.1';
+        $db = 'testdb';
+        $user = 'root';
+        $pass = 'root';
+        $charset = 'utf8';
+
+        $dsn = "mysql:host=$host;dbname=$db;charset=$charset";
+        $opt = [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES => false,
+        ];
+        $pdo = new PDO($dsn, $user, $pass, $opt);
+
+        $config->setDatabase($pdo);
+        $config->setDatabaseName('testdb');
+        $geonamesImporter = new MysqlGeonamesImporter($datasource);
+    } catch (PDOException $e) {
+        fwrite(STDERR, 'Connection failed: '.$e->getMessage());
+    } catch (Exception $e) {
+        fwrite(STDERR, $e->getMessage());
+    }
 } else {
-    die(' Iterator '.$dataStorageIterator.' is not an option');
+    fwrite(STDERR, 'Iterator '.$dataStorageIterator.' is not an option'."\n");
 }
 
-$geonamesImporter->insertAtTime($database_insert_chunk_count);
-$geonamesImporter->import();
+try {
+    // Break up the inserts in to chucks
+    $geonamesImporter->insertAtTime($database_insert_chunk_count);
 
-fwrite(STDOUT, 'Imported '.$geonamesImporter->importCount().' records'."\r\n");
+    // Run the import
+    $geonamesImporter->import();
+} catch (Exception $e) {
+    fwrite(STDERR, $e->getMessage());
+}
+
+fwrite(STDOUT, 'Processed '.$geonamesImporter->getRowsProcessedCount().' records'."\r\n");

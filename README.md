@@ -39,25 +39,29 @@ CREATE UNIQUE INDEX geonameid ON geonames (geonameid);
 CREATE TABLE geonames_zips
 (
     id INT(11) PRIMARY KEY NOT NULL AUTO_INCREMENT,
-    country_code varchar(2) NOT NULL,
+    country_code VARCHAR(2) NOT NULL,
     postal_code VARCHAR(20) NOT NULL,
     place_name VARCHAR(180) NOT NULL,
-    admin_name1 VARCHAR(100),
-    admin_code1 VARCHAR(20),
-    admin_name2 VARCHAR(100),
-    admin_code2 VARCHAR(20),
-    admin_name3 VARCHAR(100),
-    admin_code3 VARCHAR(20),
-    latitude FLOAT(10,6),
-    longitude FLOAT(10,6),
-    accuracy INT(1)
+    admin_name1 VARCHAR(100) NOT NULL,
+    admin_code1 INT(20) NOT NULL,
+    admin_name2 INT(100) NOT NULL,
+    admin_code2 INT(20) NOT NULL,
+    admin_name3 INT(100) NOT NULL,
+    admin_code3 INT(20) NOT NULL,
+    latitude FLOAT(10,6) NOT NULL,
+    longitude FLOAT(10,6) NOT NULL,
+    accuracy INT(1) NOT NULL
 );
-CREATE UNIQUE INDEX id ON geonames_zips (id);
+CREATE UNIQUE INDEX postal_code ON geonames_zips (postal_code);
 
 ## How to run app ##
 To run the program, you will run the following command, after changing your path in to the root directory of the program.
+- `php importer.php -t(type, "zips" or "countries", required), -z(Name of file, default: US, not required), -d(data storage, "elasticsearch" or "mysql", required), -c(chunk insert count, not required, default: 500), --debug(display debug info, not required)
 
-- `php importer.php <"countries" or "zips", required> <zip_file_name, optional, default: US> <data_storage_iterator, optional, default:elasticsearch, options(elasticsearch, mysql)> <database_insert_chuck_count, optional, default:500> <debug, optional, default:0>`
+
+## TODO ##
+- Fix "force reload"
+- Fix "catch up" (progress is recorded already, this option will allow the program to catchup to where it was)
 
 ### README file from countries
  

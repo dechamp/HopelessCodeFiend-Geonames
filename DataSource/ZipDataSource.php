@@ -7,7 +7,7 @@ class ZipDataSource extends DataSourceBase
 
     public $table = 'geonames_zips';
 
-    protected $uniqueKeys = ['id'];
+    protected $uniqueKeys = ['id', 'postal_code'];
 
     protected $mappedColumns
         = [

@@ -5,9 +5,7 @@
  * Date: 7/22/15
  * Time: 7:07 PM
  */
-
 namespace HopelessCodeFiend\Geonames\DataSource;
-
 
 use Exception;
 use HopelessCodeFiend\Geonames\Iterator\FileIterator;
@@ -15,10 +13,9 @@ use ZipArchive;
 
 class DataSourceBase
 {
-
-    public $DB;
+    const PROGRESS_FILE_PATH = '/progress.txt';
     public $table;
-    public $config;
+    protected $config;
     protected $fileName;
     protected $tempFilePath;
     protected $tempFile;
@@ -48,15 +45,24 @@ class DataSourceBase
         }
 
         $this->config = $config;
-        $this->fileName = basename($this->config->getFileUrl());
-        $this->tempFilePath = $this->config->getTempDirectory();
-        $this->tempFile = $this->config->getTempDirectory().'/'.$this->fileName;
-        $this->DB = $config->getDB();
+        $this->fileName = basename($this->getConfig()->getFileUrl());
+        $this->tempFilePath = $this->getConfig()->getTempDirectory();
+        $this->tempFile = $this->getConfig()->getTempDirectory().'/'.$this->fileName;
     }
 
-    public function DB()
+    public function getConfig()
     {
-        return $this->DB;
+        return $this->config;
+    }
+
+    public function getDatabase()
+    {
+        return $this->getConfig()->getDatabase();
+    }
+
+    public function getDatabaseName()
+    {
+        return $this->getConfig()->getDatabaseName();
     }
 
     public function getMappedColumns()
@@ -67,16 +73,6 @@ class DataSourceBase
     public function getUniqueKeys()
     {
         return $this->uniqueKeys;
-    }
-
-    /**
-     * Retrieve the datafile file set within the datasource config model
-     *
-     * @return string
-     */
-    private function getDataFilePath()
-    {
-        return $this->config->getTempDirectory().'/'.$this->config->getDataFileName();
     }
 
     /**
@@ -136,7 +132,10 @@ class DataSourceBase
     protected function getZipFile()
     {
         try {
-            if (!file_exists($this->getDataFilePath()) || (filectime($this->getDataFilePath()) + 60 * 60) <= time()) {
+            // TODO add file expiration time to a configuration file
+            if (!file_exists($this->getDataFilePath())
+                || (filectime($this->getDataFilePath()) + $this->getConfig()->getMaxResourceLifeSpan()) <= time()
+            ) {
                 $this->emptyTmpFolder();
                 $this->grabRemoteFile();
                 $this->unzip();
@@ -162,7 +161,7 @@ class DataSourceBase
             $zip = new ZipArchive;
             chmod($this->tempFile, 0777);
 
-            if (($res = $zip->open($this->tempFile, ZipArchive::OVERWRITE)) !== true) {
+            if (($res = $zip->open($this->tempFile)) !== true) {
                 switch ($res) {
                     case ZipArchive::ER_EXISTS:
                         $ErrMsg = "File already exists.";
@@ -205,7 +204,8 @@ class DataSourceBase
                 throw new Exception('Unable to process zip file '.$this->tempFile.' :: '.$ErrMsg);
             }
 
-            $zip->extractTo($this->config->getTempDirectory());
+            fwrite(STDOUT, "\n".'Unzipping files...');
+            $zip->extractTo($this->getConfig()->getTempDirectory().'/');
             $zip->close();
 
         } catch (Exception $e) {
@@ -214,25 +214,29 @@ class DataSourceBase
     }
 
     /**
-     * Grabs file from url
-     *
-     * @return mixed
+     * Grabs file from url and put in temp folder
      */
     private function grabRemoteFile()
     {
-        file_put_contents($this->tempFilePath.'/progress.txt', '');
-        $curl = curl_init($this->config->getFileUrl());
+        file_put_contents($this->tempFilePath.self::PROGRESS_FILE_PATH, '');
+        $curl = curl_init($this->getConfig()->getFileUrl());
         curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);
         curl_setopt($curl, CURLOPT_NOPROGRESS, 0);
         curl_setopt($curl, CURLOPT_PROGRESSFUNCTION, [$this, 'progressCallback']);
         $grabbed_file = curl_exec($curl);
+
+        if ($curl_error = curl_error($curl) !== '') {
+            throw new Exception($curl_error);
+        }
+
         file_put_contents($this->tempFile, $grabbed_file);
     }
 
     private function emptyTmpFolder()
     {
-        $tmp_path = rtrim($this->tempFilePath,'/');
-        if(file_exists($tmp_path)) {
+        // TODO ensure app files are protected from deletion
+        $tmp_path = rtrim($this->tempFilePath, '/');
+        if (file_exists($tmp_path)) {
             $files = glob($tmp_path.'/*');
             foreach ($files as $file) {
                 if (is_file($file)) {
@@ -258,13 +262,25 @@ class DataSourceBase
 
         if ($progress > $previousProgress) {
             if ($previousProgress === 0) {
-                fwrite(STDOUT, 'Progress...'."\r\n");
+                fwrite(STDOUT, "\n".'Progress...'."\r\n");
             }
 
             $previousProgress = $progress;
-            @file_put_contents($this->tempFilePath.'/progress.txt', $progress."\n", FILE_APPEND);
-            fwrite(STDOUT, $progress."%\r\n");
+            @file_put_contents($this->tempFilePath.self::PROGRESS_FILE_PATH, $progress."\n", FILE_APPEND);
+
+            // TODO update with cool update bar? https://github.com/guiguiboy/PHP-CLI-Progress-Bar
+            fwrite(STDOUT, "\r Downloading file (".$progress.'%)');
         }
+    }
+
+    /**
+     * Retrieve the datafile file set within the datasource config model
+     *
+     * @return string
+     */
+    private function getDataFilePath()
+    {
+        return $this->getConfig()->getTempDirectory().'/'.$this->getConfig()->getDataFileName();
     }
 
 }

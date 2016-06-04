@@ -7,12 +7,13 @@ use InvalidArgumentException;
 
 class DataSourceConfiguration
 {
-
     public $recover = false;
     private $fileUrl;
     private $dataFileWithin;
     private $tempDirectory;
-    private $DB;
+    private $database;
+    private $databaseName = 'geonames';
+    private $maxResourceLifeSpan = (60 * 60 * 24);
 
     public function __construct($pathToFile, $dataFileWithin)
     {
@@ -61,13 +62,33 @@ class DataSourceConfiguration
         $this->tempDirectory = $tempDirectory;
     }
 
-    public function getDB()
+    public function getDatabase()
     {
-        return $this->DB;
+        return $this->database;
     }
 
-    public function setDB($database)
+    public function setDatabase($database)
     {
-        $this->DB = $database;
+        $this->database = $database;
+    }
+
+    public function getDatabaseName()
+    {
+        return $this->databaseName;
+    }
+
+    public function setDatabaseName($name)
+    {
+        $this->databaseName = $name;
+    }
+
+    public function getMaxResourceLifeSpan()
+    {
+        return $this->maxResourceLifeSpan;
+    }
+
+    public function setMaxResourceLifeSpan($time)
+    {
+        $this->maxResourceLifeSpan = $time;
     }
 }

@@ -38,14 +38,14 @@ class ElasticSearchGeonamesImporter extends GeonamesImporter
                 $results = $this->addToDatabase($params);
 
                 if ($results['created'] === true) {
-                    $this->insertCount++;
+                    $this->increaseInsertCountBy(1);
                 }
 
                 $iterator->delete();
 
-                if ($this->insertCount > (int)$this->insertAtTime) {
-                    echo ($this->actualInsertCount += $this->insertCount)."\n";
-                    $this->insertCount = 0;
+                if ($this->getRowsProcessedCount() > (int)$this->insertAtTime) {
+                    echo ($this->rowsProcessedCount += $this->rowsProcessedCount)."\n";
+                    $this->rowsProcessedCount = 0;
                 }
             }
 
@@ -55,10 +55,9 @@ class ElasticSearchGeonamesImporter extends GeonamesImporter
         }
     }
 
-    protected function addToDatabase($params)
+    protected function addToDatabase($params = null)
     {
-
-        if (!array_key_exists('body', $params)) {
+        if (!isset($params) || !array_key_exists('body', $params)) {
             throw new InvalidArgumentException('ElasticSearch requires params to be an array with [index,type,id,body]');
         }
 
@@ -75,8 +74,8 @@ class ElasticSearchGeonamesImporter extends GeonamesImporter
 
         // Check for invalid rows
         if (count($row) !== count($columns)) {
-            error_log('Invalid row: '.$this->actualInsertCount.' :: '.$row."\n");
-            echo 'line '.$this->actualInsertCount.' is invalid and was skipped'."\n";
+            error_log('Invalid row: '.$this->rowsProcessedCount.' :: '.$row."\n");
+            echo 'line '.$this->rowsProcessedCount.' is invalid and was skipped'."\n";
 
             return null;
         }

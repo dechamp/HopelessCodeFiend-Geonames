@@ -2,10 +2,11 @@
 
 namespace HopelessCodeFiend\Geonames\Importer;
 
+use Exception;
 use HopelessCodeFiend\Geonames\DataSource;
 use HopelessCodeFiend\Geonames\DataSource\DataSourceBase;
 use Iterator;
-
+use PDO;
 
 abstract class GeonamesImporter
 {
@@ -15,17 +16,21 @@ abstract class GeonamesImporter
     protected $reportParams = [];
     protected $dataSource;
     protected $dataIterator;
-    protected $DB;
+
+    /**
+     * @var $database PDO
+     */
+    protected $database;
     protected $databaseConfig;
-    public $currentProgressFilePath = '/current_progress';
-    public $insertCount = 0;
-    public $actualInsertCount = 0;
+    public $currentProgressFilePath = '/current_progress.data';
+    public $rowsProcessedCount = 0;
+    public $rowsAffectedCount = 0;
 
     public function __construct(DataSourceBase $dataSource, $databaseConfig = null)
     {
         $this->dataSource = $dataSource;
         $this->dataIterator = $this->dataSource->getDataIterator();
-        $this->DB = $this->dataSource->DB();
+        $this->database = $this->dataSource->getDatabase();
         $this->databaseConfig = $databaseConfig;
     }
 
@@ -36,14 +41,84 @@ abstract class GeonamesImporter
         $this->importToDatabase($this->dataIterator);
     }
 
-    public function importCount()
-    {
-        return $this->insertCount;
-    }
-
     public function insertAtTime($insert_at_time = 500)
     {
         $this->insertAtTime = $insert_at_time;
+    }
+
+    public function jobStart()
+    {
+        if (!file_exists($this->dataSource->getConfig()->getTempDirectory().$this->currentProgressFilePath)) {
+            file_put_contents($this->dataSource->getConfig()->getTempDirectory().$this->currentProgressFilePath, 0);
+        }
+    }
+
+    public function jobDone()
+    {
+        unlink($this->dataSource->getConfig()->getTempDirectory().$this->currentProgressFilePath);
+    }
+
+    public function updateCurrentProgress()
+    {
+        try {
+            if (file_exists($this->getProgressFile())
+                && is_writable($this->getProgressFile())
+            ) {
+                return $this->updateCurrentProgressFile();
+            }
+
+            if (!file_exists($this->dataSource->getConfig()->getTempDirectory())) {
+                mkdir($this->dataSource->getConfig()->getTempDirectory());
+            }
+
+            if (!is_writable($this->getProgressFile())) {
+                chmod($this->getProgressFile(), 777);
+            }
+
+            return $this->updateCurrentProgressFile();
+
+        } catch (Exception $e) {
+            throw $e;
+        }
+    }
+
+    public function getRowsProcessedCount()
+    {
+        return $this->rowsProcessedCount;
+    }
+
+    private function updateCurrentProgressFile()
+    {
+        return (false !== file_put_contents($this->getProgressFile(), $this->rowsProcessedCount));
+    }
+
+    private function getProgressFile()
+    {
+        return $this->dataSource->getConfig()->getTempDirectory().$this->currentProgressFilePath;
+    }
+
+    public function caughtUp()
+    {
+        $count = trim(file_get_contents($this->dataSource->getConfig()->getTempDirectory().$this->currentProgressFilePath));
+
+        return ($this->rowsProcessedCount) >= (integer)$count ? true : false;
+    }
+
+    abstract protected function addToDatabase();
+
+    private function rowToString($row)
+    {
+        $output = '';
+
+        if (!is_array($row)) {
+            return null;
+        }
+
+        foreach ($row AS $key => $val) {
+            $output .= $key.': '.$val."\n";
+        }
+
+        return $output;
     }
 
     public function __toString()
@@ -52,47 +127,6 @@ abstract class GeonamesImporter
 
         foreach ($this->dataIterator AS $row_key => $row_val) {
             $output .= $row_key.': '.$this->rowToString($row_val)."\n\r<hr>";
-        }
-
-        return $output;
-    }
-
-    public function jobStart()
-    {
-        if (!file_exists($this->dataSource->config->getTempDirectory().$this->currentProgressFilePath)) {
-            file_put_contents($this->dataSource->config->getTempDirectory().$this->currentProgressFilePath, 0);
-        }
-    }
-
-    public function jobDone()
-    {
-        unlink($this->dataSource->config->getTempDirectory().$this->currentProgressFilePath);
-    }
-
-    public function updateCurrentProgress()
-    {
-        file_put_contents($this->dataSource->config->getTempDirectory().$this->currentProgressFilePath, $this->insertCount);
-    }
-
-    public function caughtUp()
-    {
-        $count = trim(file_get_contents($this->dataSource->config->getTempDirectory().$this->currentProgressFilePath));
-
-        return ($this->insertCount) >= (integer)$count ? true : false;
-    }
-
-    abstract protected function addToDatabase($data);
-
-    private function rowToString($row)
-    {
-        $output = '';
-
-        if (!is_array($row)) {
-            return;
-        }
-
-        foreach ($row AS $key => $val) {
-            $output .= $key.': '.$val."\n";
         }
 
         return $output;
